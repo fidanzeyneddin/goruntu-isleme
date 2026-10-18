@@ -1,0 +1,23 @@
+# Sobel ve Prewitt Operatörleri Karşılaştırma Raporu
+
+Bu rapor, görüntü işleme alanında yaygın olarak kullanılan birinci dereceden türev tabanlı iki kenar tespit algoritması olan Sobel ve Prewitt filtrelerinin yapısal farklılıklarını ve çıktı kalitelerini incelemektedir.
+
+## 1. Matematiksel Yaklaşım ve Çekirdek (Kernel) Yapısı
+Her iki algoritma da pikseller arasındaki parlaklık değişimlerini (gradyan) ölçerek yatay (Y) ve dikey (X) kenarları tespit eder. Aralarındaki temel fark, konvolüsyon matrislerindeki merkez piksele verilen ağırlıktır.
+
+*   **Prewitt Filtresi:** Komşu piksellerin tamamına eşit ağırlık (1 veya -1) verir.
+*   **Sobel Filtresi:** Merkezdeki piksellere daha fazla ağırlık (2 veya -2) vererek hesaplama sırasında merkez bölgesini vurgular.
+
+## 2. Gürültüye Karşı Duyarlılık ve Pürüzsüzleştirme
+*   Sobel operatöründeki merkez ağırlıklı yapı, algoritmaya yerleşik bir pürüzsüzleştirme (smoothing) özelliği kazandırır. Bu sayede, yüksek frekanslı parazitler (noise) Sobel tarafından daha başarılı bir şekilde bastırılır.
+*   Prewitt operatörü ise tüm komşulara eşit davrandığı için gürültüye karşı daha kırılgandır ve özellikle düşük kaliteli veya kumlu görüntülerde yanlış kenarlar (false-edges) üretebilir.
+
+## 3. Çıktı Kalitesi ve Kenar Keskinliği
+*   **Sobel Sonuçları:** Kenarları daha belirgin, pürüzsüz ve sürekli hatlar şeklinde çizer. Çapraz ve kavisli kenarlarda çok daha yüksek doğruluk sağlar.
+*   **Prewitt Sonuçları:** Gradyan değişimlerine daha doğrudan tepki verdiği için zayıf kenarlarda kesintili çizgiler bırakma eğilimindedir.
+
+## 4. İşlem Maliyeti ve Performans
+Matematiksel olarak Prewitt ağırlıklı olarak toplama/çıkarma işlemleri içerirken, Sobel ekstra bir kat sayı çarpımı gerektirir. Teorik olarak Prewitt'in işlem yükü daha hafif olsa da, OpenCV optimizasyonları kullanıldığında her iki filtrenin donanım üzerindeki çalışma zamanı (runtime) pratikte aynıdır.
+
+## Sonuç
+Gerçek dünya görüntülerinde ışık dalgalanmaları ve parazit oranının yüksek olması sebebiyle **Sobel algoritması** Prewitt'e kıyasla daha güvenilir ve kararlı kenar haritaları sunmaktadır.
