@@ -1,0 +1,17 @@
+# Laplacian Filtresinin Sobel ve Prewitt ile Karşılaştırması
+
+Bu doküman, 2. türev tabanlı Laplacian operatörünün, 1. türev tabanlı Sobel ve Prewitt operatörleriyle arasındaki temel farkları incelemektedir.
+
+## 1. Türev Yaklaşımı ve Yön Bağımlılığı
+*   **Sobel ve Prewitt:** Birinci dereceden türev alırlar. Kenarların yönünü (yatay, dikey, çapraz) belirleyebilirler. İşlemler genellikle X ve Y eksenleri için ayrı matrislerle yapılır ve sonra birleştirilir.
+*   **Laplacian:** İkinci dereceden türev alır. Yön bağımsızdır (izotropik). Tek bir işlemle (kernel) görüntünün tüm yönlerindeki yoğunluk değişimlerini yakalar. Kenarın yönünü vermez, sadece kenarın varlığını "sıfır geçiş (zero-crossing)" noktalarıyla tespit eder.
+
+## 2. Gürültü (Noise) Hassasiyeti
+Laplacian filtresi ikinci türev işlemi uyguladığından, yüksek frekanslı sinyallere ve parazitlere karşı Sobel ve Prewitt'ten çok daha hassastır. Görüntüdeki en ufak bir pürüz bile büyük bir kenar gibi algılanabilir. Bu nedenle Laplacian filtresi tek başına kullanılmaz, her zaman öncesinde bir **Gauss Filtresi (Gaussian Blur)** ile yoğun bir yumuşatma işlemine ihtiyaç duyar. Sobel ise merkez ağırlıklı yapısı sayesinde gürültüyü bir miktar kendi içinde tolere edebilir.
+
+## 3. Görsel Çıktı Karakteristiği
+*   **Sobel ve Prewitt:** Kenarları nispeten daha kalın, pürüzsüz ve degrade (kademeli geçiş) şeklinde sunar. Vurgulanmış, dolgun hatlar üretir.
+*   **Laplacian:** Daha ince ve keskin kenarlar üretir. Sıfır geçişlerini bulduğu için kenarın tam konumunu (location) belirlemede Sobel ve Prewitt'e göre daha hassastır. Ancak yanlış kenar üretme riski daha yüksektir.
+
+## Sonuç
+Kenar yönünün önemli olduğu veya gürültülü bir ortamda kalın ana hatların çıkarılmak istendiği durumlarda **Sobel**; kenarın tam konumunun piksel seviyesinde yüksek doğrulukla tespit edilmek istendiği (örneğin medikal görüntüler veya hassas ölçümler) durumlarda ise Gauss ile desteklenmiş **Laplacian** tercih edilmelidir.
