@@ -1,0 +1,17 @@
+# Canny Kenar Tespit Algoritmasının Diğer Yöntemlerle Karşılaştırması
+
+Bu raporda, çok aşamalı Canny kenar tespit algoritmasının Sobel, Prewitt ve Laplacian filtreleri ile doğruluk (accuracy) ve çalışma zamanı (runtime) açısından kıyaslaması sunulmaktadır.
+
+## 1. Doğruluk (Accuracy) ve Çıktı Kalitesi
+Canny, kenar tespitinde "altın standart (gold standard)" olarak kabul edilir ve doğruluk açısından diğer tüm yöntemlerden üstündür.
+*   **İncelik ve Netlik:** Sobel ve Prewitt kenarları birkaç piksel kalınlığında ve degrade şeklinde bırakırken, Canny "Non-Maximum Suppression (Maksimum Olmayanları Bastırma)" tekniğini kullanarak tüm kenarları tam olarak 1 piksel kalınlığına indirger.
+*   **Kesintisiz Hatlar:** Diğer filtrelerde zayıf kenarlar kesintiye uğrarken, Canny "Hysteresis Thresholding (Çift Eşikleme)" sayesinde kopuk çizgileri birbirine bağlayarak bütünsel ve sürekli kenar haritaları oluşturur.
+*   **Yanlış Kenar (False-Edge) Oranı:** Kendi içindeki Gauss ve eşikleme adımları sayesinde, sadece gerçek yapısal kenarları tutarak gürültü kaynaklı hatalı kenarları neredeyse sıfıra indirir.
+
+## 2. Çalışma Zamanı (Runtime) ve İşlem Maliyeti
+Doğruluktaki bu büyük üstünlük, işlem maliyetine yansır.
+*   **Sobel / Prewitt / Laplacian:** Bu yöntemler, görüntünün her pikseli üzerinde tek bir matris çarpımı (konvolüsyon) yaparak işlemi bitirir. Bu nedenle donanım üzerinde son derece hızlı çalışırlar. (O(N) karmaşıklığında basit işlemler).
+*   **Canny:** Tek bir formül değil, 5 aşamalı bir algoritma zinciridir (Gauss Yumuşatma -> Sobel ile Gradyan Bulma -> Yön Hesaplama -> Non-Maximum Suppression -> Hysteresis). Bu çok aşamalı yapı nedeniyle Canny'nin çalışma zamanı (runtime), basit filtrelere kıyasla belirgin şekilde daha uzundur.
+
+## Sonuç
+Gerçek zamanlı çalışan, çok düşük donanım kapasitesine sahip veya milisaniyelik hızın hayati olduğu sistemlerde (örn: basit çizgi izleyen robotlar) işlem hızı avantajından dolayı **Sobel** tercih edilebilir. Ancak hız kısıtının olmadığı ve detaylı nesne tanıma, tıbbi görüntüleme veya otonom sürüş gibi yüksek hassasiyet gerektiren tüm modern görüntü işleme projelerinde kesinlikle **Canny** algoritması kullanılmalıdır.
