@@ -1,0 +1,18 @@
+# 7x7 Laplacian of Gaussian (LoG) ve Diğer Filtrelerin Karşılaştırma Raporu
+
+Bu raporda, 7x7 boyutunda çekirdek kullanılarak elde edilen Laplacian of Gaussian (LoG) sonuçları, Gauss filtresi uygulanmış ve uygulanmamış diğer kenar tespit algoritmaları (Sobel, Prewitt, Laplacian) ile karşılaştırılmıştır.
+
+## 1. Gauss Filtresi Uygulanmamış (Ham) Filtreler
+Gauss ile pürüzsüzleştirme yapılmadan resmi doğrudan Sobel, Prewitt veya Laplacian filtrelerine sokmak, "gürültü (noise) patlamasına" yol açar. Görüntüdeki en ufak doku farklılığı, toz zerresi veya ışık dalgalanması sanki bir kenarmış gibi algılanır (false-edges). Özellikle ham Laplacian filtresi, 2. türev aldığı için tamamen kumlu ve okunamaz bir kenar haritası üretir.
+
+## 2. 3x3 Gauss Uygulanmış Filtreler (Önceki Görevler)
+Önceki görevlerde uyguladığımız 3x3 Gauss + Sobel/Prewitt/Laplacian kombinasyonları, görüntüdeki rastgele parazitleri (tuz-biber gürültüsü) temizleyerek asıl kenarları ortaya çıkarır. Ancak 3x3 nispeten küçük bir etki alanı olduğundan, nesnelerin içindeki detaylı dokuları (örneğin bir kumaşın deseni veya yaprakların damarları) hala kenar olarak tespit etmeye devam eder.
+
+## 3. 7x7 LoG (Laplacian of Gaussian) Sonuçları
+7x7 boyutunda büyük bir Gauss çekirdeği kullanmak, görüntüyü agresif bir şekilde bulanıklaştırır. Bu işlemin ardından Laplacian uygulandığında şu karakteristik sonuçlar elde edilir:
+*   **İnce Detayların Kaybı:** Yüzeydeki küçük dokular, çizgiler ve pürüzler tamamen yok olur.
+*   **Ana Hatların Vurgulanması:** Sadece görüntüdeki en güçlü, en belirgin ve yapısal olarak en büyük nesnelerin dış hatları (objelerin sınırları) kenar olarak tespit edilir.
+*   **Daha Kalın Sınırlar:** Çekirdek boyutu (7x7) büyüdükçe, tespit edilen kenar sınırlarının kalınlığı da artma eğilimi gösterir.
+
+## Sonuç
+Kenar tespitinde çekirdek (kernel) boyutunun ve Gauss bulanıklaştırmasının seviyesi, amacımıza göre belirlenmelidir. Eğer resimdeki **tüm küçük detayları ve ince dokuları** görmek istiyorsak 3x3 Gauss + Sobel; ancak detaylardan arınmış, sadece **ana objelerin dış hatlarını (silüetlerini)** çıkarmak istiyorsak 7x7 LoG filtresi kullanılmalıdır.
