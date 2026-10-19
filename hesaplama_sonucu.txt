@@ -1,0 +1,3 @@
+--- HESAPLAMA SONUCLARI ---
+Goruntu Boyutu: 556x359 piksel
+Toplam Mutlak Hata Degeri (SAD): 29
