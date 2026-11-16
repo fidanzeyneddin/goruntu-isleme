@@ -1,0 +1,38 @@
+--------------------------------------------------
+Renk Uzayı: RGB
+Yapısı: Kırmızı (R), Yeşil (G), Mavi (B)
+Avantajları: Donanımların (kamera, ekran) doğal formatıdır. Gösterim için idealdir.
+Dezavantajları: Kanallar arası yüksek korelasyon vardır. Işık değişimlerinden çok etkilenir. Renk ve parlaklık iç içedir.
+Kullanım Alanları: Ekranda gösterme, dosya okuma/yazma işlemleri.
+--------------------------------------------------
+Renk Uzayı: HSV / HSI
+Yapısı: Hue (Renk Özü), Saturation (Doygunluk), Value/Intensity (Parlaklık)
+Avantajları: Renk bilgisini (H) parlaklıktan (V/I) ayırır. İnsan görme sistemine çok yakındır.
+Dezavantajları: RGB'den dönüşümü doğrusal değildir, hesaplama maliyeti yaratır. H kanalı daireseldir (0 ve 360 aynı renktir).
+Kullanım Alanları: Cisim takibi, ten rengi tespiti, trafik işareti algılama.
+--------------------------------------------------
+Renk Uzayı: YUV / YCbCr
+Yapısı: Y (Parlaklık-Luma), U/Cb (Mavi farkı), V/Cr (Kırmızı farkı)
+Avantajları: Parlaklık ve renk ayrılır. Göz renge daha az duyarlı olduğu için renk kanalları sıkıştırılabilir.
+Dezavantajları: İnsan algısına göre tasarlanmamıştır (HSV'ye kıyasla).
+Kullanım Alanları: Video sıkıştırma (JPEG/MPEG), yayıncılık, ten rengi segmentasyonu.
+--------------------------------------------------
+Renk Uzayı: CIE Lab
+Yapısı: L (Parlaklık), a (Yeşil-Kırmızı), b (Mavi-Sarı)
+Avantajları: Cihaz bağımsızdır. Perceptual uniform'dur (iki renk arasındaki matematiksel fark, gözün algıladığı farka eşittir).
+Dezavantajları: Dönüşüm formülleri karmaşıktır (küp kök hesaplamaları gerektirir) ve yavaştır.
+Kullanım Alanları: Renk eşleştirme, medikal görüntü analizi, kalite kontrol.
+--------------------------------------------------
+Renk Uzayı: Grayscale
+Yapısı: Tek kanal (Siyah-Beyaz tonlar)
+Avantajları: Veri boyutunu 3'te 1'e düşürür. İşlem süresini muazzam hızlandırır.
+Dezavantajları: Renk bilgisi tamamen kaybolur.
+Kullanım Alanları: Kenar tespiti (Canny, Sobel), yüz tanıma, şablon eşleştirme.
+--------------------------------------------------
+--- GÖREV 2 ANALİZİ ---
+1000x1000 3 Kanallı Boyut (Teorik): 3000054 Byte
+1000x1000 1 Kanallı (Gri) Boyut (Teorik): 1001078 Byte
+
+--- GÖREV 3 ANALİZİ ---
+8K (3 Kanallı) Toplam Piksel Değeri Sayısı: 99532800
+CUDA Çekirdeği Çalışma Süresi: 103.009 ms
