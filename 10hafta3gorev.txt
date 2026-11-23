@@ -1,0 +1,157 @@
+%%writefile stereo_metrics.cpp
+#include <opencv2/opencv.hpp>
+#include <iostream>
+#include <cmath>
+#include <limits>
+#include <chrono>
+
+using namespace cv;
+using namespace std;
+
+// 1. Fonksiyon Pointer Tanımı (Tüm metrikler aynı parametre sayı ve türlerine sahip)
+typedef double (*MetricFunc)(const Mat&, const Mat&, int, int, int, int);
+
+// --- METRİK 1: SAD (Sum of Absolute Differences) -> Küçük olan daha iyi ---
+double computeSAD(const Mat& left, const Mat& right, int y, int x, int d, int half) {
+    double sad = 0.0;
+    for (int wy = -half; wy <= half; wy++) {
+        for (int wx = -half; wx <= half; wx++) {
+            double l_val = left.at<uchar>(y + wy, x + wx);
+            double r_val = right.at<uchar>(y + wy, x + wx - d);
+            sad += abs(l_val - r_val);
+        }
+    }
+    return sad;
+}
+
+// --- METRİK 2: SSD (Sum of Squared Differences) -> Küçük olan daha iyi ---
+double computeSSD(const Mat& left, const Mat& right, int y, int x, int d, int half) {
+    double ssd = 0.0;
+    for (int wy = -half; wy <= half; wy++) {
+        for (int wx = -half; wx <= half; wx++) {
+            double diff = static_cast<double>(left.at<uchar>(y + wy, x + wx)) -
+                          static_cast<double>(right.at<uchar>(y + wy, x + wx - d));
+            ssd += diff * diff;
+        }
+    }
+    return ssd;
+}
+
+// --- METRİK 3: ZNCC (Zero-Mean Normalized Cross-Correlation) -> Büyük olan daha iyi ---
+double computeZNCC(const Mat& left, const Mat& right, int y, int x, int d, int half) {
+    int count = (2 * half + 1) * (2 * half + 1);
+    double meanL = 0.0, meanR = 0.0;
+
+    // 1. Adım: Sol ve sağ blokların ortalamasını bul
+    for (int wy = -half; wy <= half; wy++) {
+        for (int wx = -half; wx <= half; wx++) {
+            meanL += left.at<uchar>(y + wy, x + wx);
+            meanR += right.at<uchar>(y + wy, x + wx - d);
+        }
+    }
+    meanL /= count;
+    meanR /= count;
+
+    // 2. Adım: Kovaryans (pay) ve standart sapmaların çarpımını (payda) hesapla
+    double num = 0.0, denL = 0.0, denR = 0.0;
+    for (int wy = -half; wy <= half; wy++) {
+        for (int wx = -half; wx <= half; wx++) {
+            double dl = left.at<uchar>(y + wy, x + wx) - meanL;
+            double dr = right.at<uchar>(y + wy, x + wx - d) - meanR;
+            num += dl * dr;
+            denL += dl * dl;
+            denR += dr * dr;
+        }
+    }
+
+    double denom = sqrt(denL * denR);
+    if (denom < 1e-6) return -1.0; // Sıfıra bölme koruması (düz yüzeyler)
+
+    return num / denom;
+}
+
+// --- GENEL STEREO EŞLEŞTİRME FONKSİYONU (Fonksiyon Pointer Alır) ---
+Mat stereoMatching(const Mat& left, const Mat& right, int maxDisp, int blockSize,
+                   MetricFunc metric, bool isSimilarity) {
+    int rows = left.rows;
+    int cols = left.cols;
+    int half = blockSize / 2;
+
+    Mat disp = Mat::zeros(rows, cols, CV_8UC1);
+
+    for (int y = half; y < rows - half; y++) {
+        for (int x = half; x < cols - half; x++) {
+            int best_d = 0;
+            // Benzerlik (ZNCC) ise en küçüğe, maliyet (SAD/SSD) ise en büyüğe başlat
+            double best_score = isSimilarity ? -numeric_limits<double>::max()
+                                             : numeric_limits<double>::max();
+
+            for (int d = 0; d < maxDisp; d++) {
+                if (x - d - half < 0) break;
+
+                // Fonksiyon pointer üzerinden seçilen metriği çağır
+                double score = metric(left, right, y, x, d, half);
+
+                if (isSimilarity) {
+                    if (score > best_score) {
+                        best_score = score;
+                        best_d = d;
+                    }
+                } else {
+                    if (score < best_score) {
+                        best_score = score;
+                        best_d = d;
+                    }
+                }
+            }
+
+            disp.at<uchar>(y, x) = static_cast<uchar>((best_d * 255) / (maxDisp - 1));
+        }
+    }
+
+    return disp;
+}
+
+int main() {
+    Mat left = imread("scene1.row3.col1.ppm", IMREAD_GRAYSCALE);
+    Mat right = imread("scene1.row3.col3.ppm", IMREAD_GRAYSCALE);
+
+    if (left.empty() || right.empty()) {
+        cerr << "Goruntuler yuklenemedi!" << endl;
+        return -1;
+    }
+
+    int maxDisp = 32;
+    int blockSize = 3;
+
+    // 1. SAD Testi
+    auto t1 = chrono::high_resolution_clock::now();
+    Mat dispSAD = stereoMatching(left, right, maxDisp, blockSize, computeSAD, false);
+    auto t2 = chrono::high_resolution_clock::now();
+    cout << "SAD suresi : " << chrono::duration<double>(t2 - t1).count() << " sn" << endl;
+
+    // 2. SSD Testi
+    t1 = chrono::high_resolution_clock::now();
+    Mat dispSSD = stereoMatching(left, right, maxDisp, blockSize, computeSSD, false);
+    t2 = chrono::high_resolution_clock::now();
+    cout << "SSD suresi : " << chrono::duration<double>(t2 - t1).count() << " sn" << endl;
+
+    // 3. ZNCC Testi
+    t1 = chrono::high_resolution_clock::now();
+    Mat dispZNCC = stereoMatching(left, right, maxDisp, blockSize, computeZNCC, true);
+    t2 = chrono::high_resolution_clock::now();
+    cout << "ZNCC suresi: " << chrono::duration<double>(t2 - t1).count() << " sn" << endl;
+
+    // Renkli (JET) haritaları oluştur ve kaydet
+    Mat jetSAD, jetSSD, jetZNCC;
+    applyColorMap(dispSAD, jetSAD, COLORMAP_JET);
+    applyColorMap(dispSSD, jetSSD, COLORMAP_JET);
+    applyColorMap(dispZNCC, jetZNCC, COLORMAP_JET);
+
+    imwrite("disp_sad.png", jetSAD);
+    imwrite("disp_ssd.png", jetSSD);
+    imwrite("disp_zncc.png", jetZNCC);
+
+    cout << "Tum haritalar kaydedildi!" << endl;
+    return 0;
+}

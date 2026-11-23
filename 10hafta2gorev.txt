@@ -1,0 +1,72 @@
+%%writefile manuel_sad.cpp
+#include <opencv2/opencv.hpp>
+#include <iostream>
+#include <limits>
+#include <cmath>
+
+using namespace cv;
+using namespace std;
+
+int main() {
+    // 1. ve 3. sahneleri gri tonlamalı yükle
+    Mat left = imread("scene1.row3.col1.ppm", IMREAD_GRAYSCALE);
+    Mat right = imread("scene1.row3.col3.ppm", IMREAD_GRAYSCALE);
+
+    if (left.empty() || right.empty()) {
+        cerr << "Goruntuler yuklenemedi!" << endl;
+        return -1;
+    }
+
+    int rows = left.rows;
+    int cols = left.cols;
+
+    // Hocanın referans görüntüsüne benzemesi için parametreler
+    int blockSize = 7;          // 7x7 blok (daha küçük blok = daha ham/gürültülü sonuç)
+    int half = blockSize / 2;
+    int maxDisp = 16;           // Maksimum kayma arama aralığı
+
+    Mat disp = Mat::zeros(rows, cols, CV_8UC1);
+
+    // 5 iç içe for döngüsü ile Manuel Blok Eşleştirme (SAD)
+    for (int y = half; y < rows - half; y++) {
+        for (int x = half; x < cols - half; x++) {
+
+            int best_d = 0;
+            int min_sad = numeric_limits<int>::max();
+
+            // Epipolar çizgi boyunca (sola doğru) kaydırarak ara
+            for (int d = 0; d < maxDisp; d++) {
+                if (x - d - half < 0) break;
+
+                int sad = 0;
+                // Blok içindeki piksellerin mutlak farklarını topla
+                for (int wy = -half; wy <= half; wy++) {
+                    for (int wx = -half; wx <= half; wx++) {
+                        int l_val = left.at<uchar>(y + wy, x + wx);
+                        int r_val = right.at<uchar>(y + wy, x + wx - d);
+                        sad += abs(l_val - r_val);
+                    }
+                }
+
+                // En küçük SAD değerini veren d'yi kaydet
+                if (sad < min_sad) {
+                    min_sad = sad;
+                    best_d = d;
+                }
+            }
+
+            // 0-15 aralığını 0-255 aralığına ölçekle
+            disp.at<uchar>(y, x) = static_cast<uchar>((best_d * 255) / (maxDisp - 1));
+        }
+    }
+
+    // JET renk haritası uygula ve kaydet
+    Mat dispColor;
+    applyColorMap(disp, dispColor, COLORMAP_JET);
+
+    imwrite("manuel_sad_gray.png", disp);
+    imwrite("manuel_sad_jet.png", dispColor);
+
+    cout << "Manuel SAD tamamlandi!" << endl;
+    return 0;
+}

@@ -1,0 +1,163 @@
+%%writefile manuel_sgbm.cpp
+#include <opencv2/opencv.hpp>
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+#include <limits>
+#include <chrono>
+
+using namespace cv;
+using namespace std;
+
+// 3B diziyi tek boyutlu vektörde hızlı indeksleme: (y, x, d)
+inline int idx(int y, int x, int d, int cols, int maxDisp) {
+    return (y * cols + x) * maxDisp + d;
+}
+
+// 1. AŞAMA: Başlangıç Maliyet Hacmi (SAD)
+vector<int> computeCostVolume(const Mat& left, const Mat& right, int maxDisp, int blockSize) {
+    int rows = left.rows;
+    int cols = left.cols;
+    int half = blockSize / 2;
+    vector<int> cost(rows * cols * maxDisp, 0);
+
+    for (int y = half; y < rows - half; y++) {
+        for (int x = half; x < cols - half; x++) {
+            for (int d = 0; d < maxDisp; d++) {
+                if (x - d - half < 0) {
+                    cost[idx(y, x, d, cols, maxDisp)] = 100000; // Sınır dışı yüksek maliyet
+                    continue;
+                }
+                int sad = 0;
+                for (int wy = -half; wy <= half; wy++) {
+                    for (int wx = -half; wx <= half; wx++) {
+                        sad += abs(left.at<uchar>(y + wy, x + wx) -
+                                   right.at<uchar>(y + wy, x + wx - d));
+                    }
+                }
+                cost[idx(y, x, d, cols, maxDisp)] = sad;
+            }
+        }
+    }
+    return cost;
+}
+
+// 2. AŞAMA: Tek Bir Yön (dy, dx) Boyunca Dinamik Programlama ile Yol Birleştirme
+void aggregatePath(const vector<int>& cost, vector<int>& totalCost,
+                   int rows, int cols, int maxDisp,
+                   int dy, int dx, int P1, int P2) {
+    vector<int> L(rows * cols * maxDisp, 0);
+
+    // Yöne göre başlangıç ve bitiş sınırlarını belirle
+    int y_start = (dy >= 0) ? 0 : rows - 1;
+    int y_end   = (dy >= 0) ? rows : -1;
+    int y_step  = (dy >= 0) ? 1 : -1;
+
+    int x_start = (dx >= 0) ? 0 : cols - 1;
+    int x_end   = (dx >= 0) ? cols : -1;
+    int x_step  = (dx >= 0) ? 1 : -1;
+
+    for (int y = y_start; y != y_end; y += y_step) {
+        for (int x = x_start; x != x_end; x += x_step) {
+            int py = y - dy;
+            int px = x - dx;
+
+            // İlk pikselde (sınırda) önceki komşu yoktur, doğrudan maliyeti al
+            if (py < 0 || py >= rows || px < 0 || px >= cols) {
+                for (int d = 0; d < maxDisp; d++) {
+                    int c = cost[idx(y, x, d, cols, maxDisp)];
+                    L[idx(y, x, d, cols, maxDisp)] = c;
+                    totalCost[idx(y, x, d, cols, maxDisp)] += c;
+                }
+                continue;
+            }
+
+            // Önceki pikseldeki minimum L değerini bul
+            int min_prev = numeric_limits<int>::max();
+            for (int d = 0; d < maxDisp; d++) {
+                min_prev = min(min_prev, L[idx(py, px, d, cols, maxDisp)]);
+            }
+
+            // Her disparity d için SGBM maliyet güncellemesi
+            for (int d = 0; d < maxDisp; d++) {
+                int c = cost[idx(y, x, d, cols, maxDisp)];
+
+                int l_same = L[idx(py, px, d, cols, maxDisp)];
+                int l_minus = (d > 0) ? L[idx(py, px, d - 1, cols, maxDisp)] + P1 : numeric_limits<int>::max();
+                int l_plus  = (d < maxDisp - 1) ? L[idx(py, px, d + 1, cols, maxDisp)] + P1 : numeric_limits<int>::max();
+                int l_other = min_prev + P2;
+
+                int min_path = min({l_same, l_minus, l_plus, l_other});
+                int val = c + min_path - min_prev;
+
+                L[idx(y, x, d, cols, maxDisp)] = val;
+                totalCost[idx(y, x, d, cols, maxDisp)] += val;
+            }
+        }
+    }
+}
+
+int main() {
+    Mat left = imread("scene1.row3.col1.ppm", IMREAD_GRAYSCALE);
+    Mat right = imread("scene1.row3.col3.ppm", IMREAD_GRAYSCALE);
+
+    if (left.empty() || right.empty()) {
+        cerr << "Goruntuler yuklenemedi!" << endl;
+        return -1;
+    }
+
+    int rows = left.rows;
+    int cols = left.cols;
+    int maxDisp = 32;
+    int blockSize = 5;
+
+    // Smoothness (Yumuşak Geçiş) Parametreleri
+    int P1 = 8 * blockSize * blockSize;   // Küçük derinlik değişimi cezası
+    int P2 = 32 * blockSize * blockSize;  // Büyük derinlik sıçraması cezası
+
+    auto t1 = chrono::high_resolution_clock::now();
+
+    // 1. Maliyet hacmini hesapla
+    vector<int> cost = computeCostVolume(left, right, maxDisp, blockSize);
+    vector<int> totalCost(rows * cols * maxDisp, 0);
+
+    // 2. 8 farklı yönde yol birleştirme (SGBM)
+    int dirs[8][2] = {
+        {0, 1}, {0, -1}, {1, 0}, {-1, 0},     // Yatay ve Dikey
+        {1, 1}, {-1, -1}, {1, -1}, {-1, 1}    // Çaprazlar
+    };
+
+    for (int i = 0; i < 8; i++) {
+        aggregatePath(cost, totalCost, rows, cols, maxDisp, dirs[i][0], dirs[i][1], P1, P2);
+    }
+
+    // 3. Winner-Takes-All: En küçük toplam maliyeti veren disparity'yi seç
+    Mat disp = Mat::zeros(rows, cols, CV_8UC1);
+    for (int y = 0; y < rows; y++) {
+        for (int x = 0; x < cols; x++) {
+            int best_d = 0;
+            int min_c = numeric_limits<int>::max();
+            for (int d = 0; d < maxDisp; d++) {
+                int c = totalCost[idx(y, x, d, cols, maxDisp)];
+                if (c < min_c) {
+                    min_c = c;
+                    best_d = d;
+                }
+            }
+            disp.at<uchar>(y, x) = static_cast<uchar>((best_d * 255) / (maxDisp - 1));
+        }
+    }
+
+    auto t2 = chrono::high_resolution_clock::now();
+    cout << "Manuel SGBM suresi: " << chrono::duration<double>(t2 - t1).count() << " sn" << endl;
+
+    Mat dispJet;
+    applyColorMap(disp, dispJet, COLORMAP_JET);
+
+    imwrite("manuel_sgbm_gray.png", disp);
+    imwrite("manuel_sgbm_jet.png", dispJet);
+    cout << "Haritalar kaydedildi!" << endl;
+
+    return 0;
+}
